@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
+from seekr.config import SeekrConfig, load_config
 from seekr.logging import configure_logging, get_logger
 
 app = typer.Typer(
@@ -27,6 +30,28 @@ def _resolve_config_path(config: Path | None) -> Path:
     return Path("config/seekr.yaml")
 
 
+def _load(config: Path | None) -> tuple[Path, SeekrConfig]:
+    config_path = _resolve_config_path(config)
+    try:
+        cfg = load_config(config_path)
+    except FileNotFoundError as exc:
+        log.error("config.missing", path=str(config_path), error=str(exc))
+        raise typer.Exit(code=2) from exc
+    except ValidationError as exc:
+        log.error("config.invalid", path=str(config_path), errors=exc.errors())
+        raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        log.error("config.invalid", path=str(config_path), error=str(exc))
+        raise typer.Exit(code=2) from exc
+    log.info(
+        "config.loaded",
+        path=str(config_path),
+        searches=len(cfg.searches),
+        enabled=len(cfg.enabled_searches()),
+    )
+    return config_path, cfg
+
+
 @app.callback()
 def _root() -> None:
     configure_logging()
@@ -40,9 +65,9 @@ def run_once(
     ] = None,
 ) -> None:
     """Fetch, classify, report once and exit."""
-    config_path = _resolve_config_path(config)
-    log.info("run_once.start", config_path=str(config_path))
-    log.warning("run_once.not_implemented", note="wired up in a later commit")
+    _, cfg = _load(config)
+    log.info("run_once.start", searches=[s.name for s in cfg.enabled_searches()])
+    log.warning("run_once.not_implemented", note="pipeline wired up in a later commit")
 
 
 @app.command("serve")
@@ -53,9 +78,29 @@ def serve(
     ] = None,
 ) -> None:
     """Run continuously, executing the pipeline on the configured schedule."""
-    config_path = _resolve_config_path(config)
-    log.info("serve.start", config_path=str(config_path))
-    log.warning("serve.not_implemented", note="wired up in a later commit")
+    _, cfg = _load(config)
+    log.info(
+        "serve.start",
+        mode=cfg.schedule.mode.value,
+        interval_minutes=cfg.schedule.interval_minutes,
+    )
+    log.warning("serve.not_implemented", note="scheduler wired up in a later commit")
+
+
+@app.command("check-config")
+def check_config(
+    config: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Path to YAML config (overrides SEEKR_CONFIG_PATH)."),
+    ] = None,
+) -> None:
+    """Validate the config file and print a summary."""
+    path, cfg = _load(config)
+    sys.stdout.write(
+        f"OK · {path} · {len(cfg.searches)} searches "
+        f"({len(cfg.enabled_searches())} enabled) · "
+        f"schedule={cfg.schedule.mode.value}\n"
+    )
 
 
 if __name__ == "__main__":
