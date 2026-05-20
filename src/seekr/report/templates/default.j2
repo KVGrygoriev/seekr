@@ -1,0 +1,18 @@
+{%- set badges = {
+    'NEW': '🆕 NEW',
+    'UPDATED_BY_OWNER': '✏️ UPDATED',
+    'REPOSTED_BY_OTHER': '♻ REPOSTED',
+    'PRICE_CHANGED': '💱 PRICE CHANGED',
+} -%}
+<b>{{ badges[classification] }}</b> · {{ location | e if location else '—' }}
+{% if area_sotki %}📐 {{ area_sotki }} сот{% if area_m2 %} ({{ area_m2 }} м²){% endif %}
+{% endif %}{% if price %}💵 ${{ '{:,}'.format(price) }}{% if price_per_100m2 %} · ${{ '{:,}'.format(price_per_100m2) }} / 100 м²{% endif %}
+{% endif %}🔗 <a href="{{ url | e }}">{{ title | e }}</a>
+{% if posted_at %}📅 Posted {{ posted_at.strftime('%Y-%m-%d') }}
+{% endif %}{% if classification == 'REPOSTED_BY_OTHER' and previous_url %}♻ Original: <a href="{{ previous_url | e }}">previous listing</a>
+{% endif %}{% if classification == 'PRICE_CHANGED' and price_history|length > 1 %}
+💱 Price history:
+{% for ts, p, cur in price_history %}   {{ ts.strftime('%Y-%m-%d') }}  ${{ '{:,}'.format(p) }}
+{% endfor %}{% endif %}{% if operator_status or operator_comment %}
+📝 Operator: <i>{{ operator_status | e or '—' }}</i>{% if operator_comment %} — “{{ operator_comment | e }}”{% endif %}
+{% endif %}
