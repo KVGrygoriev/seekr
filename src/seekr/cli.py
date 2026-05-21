@@ -10,6 +10,8 @@ from pydantic import ValidationError
 
 from seekr.config import SeekrConfig, load_config
 from seekr.logging import configure_logging, get_logger
+from seekr.pipeline import run_once_sync
+from seekr.scheduler import serve_sync
 
 app = typer.Typer(
     name="seekr",
@@ -67,7 +69,8 @@ def run_once(
     """Fetch, classify, report once and exit."""
     _, cfg = _load(config)
     log.info("run_once.start", searches=[s.name for s in cfg.enabled_searches()])
-    log.warning("run_once.not_implemented", note="pipeline wired up in a later commit")
+    run_once_sync(cfg)
+    log.info("run_once.done")
 
 
 @app.command("serve")
@@ -84,7 +87,7 @@ def serve(
         mode=cfg.schedule.mode.value,
         interval_minutes=cfg.schedule.interval_minutes,
     )
-    log.warning("serve.not_implemented", note="scheduler wired up in a later commit")
+    serve_sync(cfg)
 
 
 @app.command("check-config")
