@@ -21,10 +21,11 @@ COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./
 COPY config ./config
+COPY scripts ./scripts
 
-RUN uv sync --frozen 2>/dev/null || uv sync
+RUN uv sync --frozen 2>/dev/null || uv sync \
+ && chmod +x scripts/*.sh
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
-ENTRYPOINT ["seekr"]
-CMD ["--help"]
+CMD ["seekr", "serve"]
