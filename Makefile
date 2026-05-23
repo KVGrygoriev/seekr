@@ -26,7 +26,7 @@ migrate:
 	docker compose run --rm app alembic upgrade head
 
 run-once:
-	docker compose run --rm app seekr run-once
+	docker compose run --rm app /app/scripts/start.sh seekr run-once
 
 serve:
 	docker compose up app

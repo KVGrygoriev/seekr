@@ -29,6 +29,8 @@ _CURRENCY_SYMBOL_TO_CODE = {"$": "USD", "€": "EUR", "грн": "UAH"}
 def _text(node: Node | None) -> str:
     if node is None:
         return ""
+    for injected in node.css("style, script"):
+        injected.decompose()
     return (node.text(strip=True) or "").strip()
 
 
@@ -125,7 +127,13 @@ def parse_search_page(html: str, *, base_url: str = OLX_BASE, now: datetime | No
         url = href if href.startswith("http") else urljoin(base_url, href)
         external_id = _parse_external_id(url) or _attr(card, "id") or url
 
-        title_node = card.css_first('[data-cy="ad-card-title"] h6') or card.css_first("h6") or link
+        title_node = (
+            card.css_first('[data-cy="ad-card-title"] h4')
+            or card.css_first('[data-cy="ad-card-title"] h6')
+            or card.css_first("h4")
+            or card.css_first("h6")
+            or link
+        )
         title = _text(title_node)
 
         price_node = card.css_first('[data-testid="ad-price"]') or card.css_first("p[data-testid='ad-price']")
