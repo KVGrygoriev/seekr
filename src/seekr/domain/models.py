@@ -36,3 +36,4 @@ class ClassifiedListing:
     price_history: list[tuple[datetime, Decimal, str]] = field(default_factory=list)
     search_id: int = 0
     search_name: str = ""
+    changed_fields: frozenset[str] = field(default_factory=frozenset)

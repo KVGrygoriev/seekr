@@ -132,6 +132,7 @@ async def _process_search(
 
         if not messages:
             log.info("search.nothing_to_send", search=search_cfg.name)
+            await telegram.send_text(f"No new listings for <b>{search_cfg.name}</b>")
             return
 
         dispatched = await telegram.send_messages(messages)

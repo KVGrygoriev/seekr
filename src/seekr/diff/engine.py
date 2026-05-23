@@ -19,14 +19,6 @@ def _price_per_100m2(price: Decimal | None, area_m2: Decimal | None) -> Decimal 
     return (price * Decimal(100) / area_m2).quantize(Decimal("0.01"))
 
 
-def _content_changed(listing: Listing, raw: RawListing) -> bool:
-    return (
-        listing.title != raw.title
-        or listing.location != raw.location
-        or listing.area_m2 != raw.area_m2
-        or listing.current_url != raw.url
-    )
-
 
 class DiffEngine:
     """Classify fresh RawListings against repo state and persist deltas."""
@@ -51,7 +43,7 @@ class DiffEngine:
             existing = await self.repo.get_listing_by_external(source_id, raw.external_id)
 
             if existing is not None:
-                classification, previous_url = await self._classify_existing(
+                classification, previous_url, changed_fields = await self._classify_existing(
                     existing=existing, raw=raw, fp=fp, captured_at=now
                 )
                 listing_id = existing.id
@@ -59,6 +51,7 @@ class DiffEngine:
                 classification, listing_id, previous_url = await self._handle_new(
                     source_id=source_id, raw=raw, fp=fp, captured_at=now
                 )
+                changed_fields: frozenset[str] = frozenset()
 
             price_history = await self._price_history(listing_id)
 
@@ -73,6 +66,7 @@ class DiffEngine:
                     price_history=price_history,
                     search_id=search_id,
                     search_name=search.name,
+                    changed_fields=changed_fields,
                 )
             )
 
@@ -86,9 +80,21 @@ class DiffEngine:
         raw: RawListing,
         fp: str,
         captured_at: datetime,
-    ) -> tuple[Classification, str | None]:
-        price_changed = raw.price is not None and existing.current_price != raw.price
-        content_changed = _content_changed(existing, raw)
+    ) -> tuple[Classification, str | None, frozenset[str]]:
+        changed: set[str] = set()
+        if raw.price is not None and existing.current_price != raw.price:
+            changed.add("price")
+        if existing.title != raw.title:
+            changed.add("title")
+        if existing.location != raw.location:
+            changed.add("location")
+        if existing.area_m2 != raw.area_m2:
+            changed.add("area_m2")
+        if existing.current_url != raw.url:
+            changed.add("url")
+
+        price_changed = "price" in changed
+        content_changed = bool(changed - {"price"})
 
         previous_url = existing.current_url
 
@@ -127,7 +133,7 @@ class DiffEngine:
                 seller_url=raw.url,
                 change_kind=classification.value,
             )
-        return classification, previous_url
+        return classification, previous_url, frozenset(changed)
 
     async def _handle_new(
         self,

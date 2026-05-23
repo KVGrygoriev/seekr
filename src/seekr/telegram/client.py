@@ -60,6 +60,16 @@ class TelegramClient:
                     log.debug("telegram.header_sent", text=msg.text)
         return dispatched
 
+    async def send_text(self, text: str) -> None:
+        """Send a plain text message to every configured chat."""
+        async with httpx.AsyncClient(
+            base_url=f"{TELEGRAM_API_BASE}/bot{self._token}",
+            timeout=20.0,
+        ) as client:
+            for chat_id in self._chat_ids:
+                await self._send_one(client, chat_id=chat_id, text=text)
+                await asyncio.sleep(self._min_delay)
+
     async def _send_one(self, client: httpx.AsyncClient, *, chat_id: int, text: str) -> None:
         payload = {
             "chat_id": chat_id,

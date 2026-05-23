@@ -76,8 +76,8 @@ def _group_value(item: ClassifiedListing, key: GroupKey) -> str:
 
 
 _CLASSIFICATION_BADGE = {
-    Classification.NEW: "🆕 NEW",
-    Classification.UPDATED_BY_OWNER: "✏️ UPDATED",
+    Classification.NEW: "🟢",
+    Classification.UPDATED_BY_OWNER: "🟡",
     Classification.REPOSTED_BY_OTHER: "♻ REPOSTED",
     Classification.PRICE_CHANGED: "💱 PRICE CHANGED",
 }
@@ -166,6 +166,7 @@ class ReportBuilder:
             operator_comment=(
                 note.comment if (note and self._config.include_operator_notes) else None
             ),
+            changed_fields=item.changed_fields,
         )
         return ListingMessage(
             text=text.strip(),
