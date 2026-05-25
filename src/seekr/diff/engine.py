@@ -38,6 +38,8 @@ class DiffEngine:
         now = now or datetime.now(timezone.utc)
         results: list[ClassifiedListing] = []
 
+        current_external_ids = {r.external_id for r in raw_listings}
+
         for raw in raw_listings:
             fp = compute_fingerprint(raw.title, raw.location, raw.area_m2)
             existing = await self.repo.get_listing_by_external(source_id, raw.external_id)
@@ -49,7 +51,11 @@ class DiffEngine:
                 listing_id = existing.id
             else:
                 classification, listing_id, previous_url = await self._handle_new(
-                    source_id=source_id, raw=raw, fp=fp, captured_at=now
+                    source_id=source_id,
+                    raw=raw,
+                    fp=fp,
+                    captured_at=now,
+                    current_external_ids=current_external_ids,
                 )
                 changed_fields: frozenset[str] = frozenset()
 
@@ -142,11 +148,15 @@ class DiffEngine:
         raw: RawListing,
         fp: str,
         captured_at: datetime,
+        current_external_ids: set[str],
     ) -> tuple[Classification, int, str | None]:
         repost_origin = None
         siblings = await self.repo.find_listings_by_fingerprint(source_id, fp)
-        if siblings:
-            repost_origin = siblings[0].current_url
+        # A sibling still present in the current batch means two concurrent listings
+        # with identical details — not a repost.
+        gone_siblings = [s for s in siblings if s.external_id not in current_external_ids]
+        if gone_siblings:
+            repost_origin = gone_siblings[0].current_url
             classification = Classification.REPOSTED_BY_OTHER
         else:
             classification = Classification.NEW

@@ -1,10 +1,11 @@
-.PHONY: help up down build logs migrate run-once serve shell psql lint
+.PHONY: help up down build watch logs migrate run-once serve shell psql lint
 
 help:
 	@echo "Targets:"
 	@echo "  up         Start postgres (and build the app image if needed)"
 	@echo "  down       Stop and remove containers"
 	@echo "  build      Build the app image"
+	@echo "  watch      Auto-rebuild/restart app on source changes"
 	@echo "  migrate    Run alembic upgrade head"
 	@echo "  run-once   Run the app one-shot (process and exit)"
 	@echo "  serve      Run the app in long-running scheduler mode"
@@ -21,6 +22,9 @@ down:
 
 build:
 	docker compose build app
+
+watch:
+	docker compose up -d postgres && docker compose watch
 
 migrate:
 	docker compose run --rm app alembic upgrade head

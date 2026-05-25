@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime, timezone
 
 from seekr.config import SearchConfig, SeekrConfig
@@ -9,7 +10,7 @@ from seekr.db.repository import Repository, hash_config
 from seekr.diff.engine import DiffEngine, should_dispatch
 from seekr.domain.models import RawListing
 from seekr.logging import get_logger
-from seekr.report.builder import ListingMessage, Message, ReportBuilder
+from seekr.report.builder import HeaderMessage, ListingMessage, Message, ReportBuilder
 from seekr.sources.olx.adapter import OlxAdapter
 from seekr.telegram.client import TelegramClient
 
@@ -50,17 +51,27 @@ async def _filter_for_dispatch(
 
 
 def _drop_empty_headers(messages: list[Message]) -> list[Message]:
-    """Remove header messages whose group ended up with no listings."""
+    """Remove header messages whose group ended up with no listings, and fix counts."""
     if not messages:
         return messages
-    group_has_listings = {
-        msg.group_key for msg in messages if isinstance(msg, ListingMessage)
-    }
-    return [
-        msg
-        for msg in messages
-        if isinstance(msg, ListingMessage) or msg.group_key in group_has_listings
-    ]
+    group_counts: dict[tuple[str, ...], int] = {}
+    for msg in messages:
+        if isinstance(msg, ListingMessage):
+            group_counts[msg.group_key] = group_counts.get(msg.group_key, 0) + 1
+    result: list[Message] = []
+    for msg in messages:
+        if isinstance(msg, HeaderMessage):
+            count = group_counts.get(msg.group_key, 0)
+            if count == 0:
+                continue
+            # Replace the trailing (N) count baked in by build() with the actual post-filter count.
+            result.append(HeaderMessage(
+                text=re.sub(r"\(\d+\)$", f"({count})", msg.text),
+                group_key=msg.group_key,
+            ))
+        else:
+            result.append(msg)
+    return result
 
 
 async def run_once(config: SeekrConfig) -> None:

@@ -31,6 +31,15 @@ services:
     volumes:
       - ./config:/app/config:ro
     command: ["/app/scripts/start.sh", "seekr", "serve"]
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock
 
 volumes:
   pgdata:
